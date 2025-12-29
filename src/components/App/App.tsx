@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import toast, { Toaster } from "react-hot-toast";
 import ReactPaginate from "react-paginate";
@@ -14,11 +14,6 @@ import type { Movie } from "../../types/movie";
 
 import css from "./App.module.css";
 
-interface MoviesResponse {
-    results: Movie[];
-    total_pages: number;
-}
-
 export default function App() {
     const [query, setQuery] = useState("");
     const [page, setPage] = useState(1);
@@ -28,11 +23,12 @@ export default function App() {
         data,
         isLoading,
         isError,
-    } = useQuery<MoviesResponse>({
+        isSuccess,
+    } = useQuery({
         queryKey: ["movies", query, page],
         queryFn: () => fetchMovies(query, page),
         enabled: query.trim() !== "",
-        placeholderData: (previousData) => previousData,
+        placeholderData: (prev) => prev,
     });
 
     const movies = data?.results ?? [];
@@ -43,9 +39,19 @@ export default function App() {
         setPage(1);
     };
 
-    if (isError) {
-        toast.error("There was an error. Please try again.");
-    }
+    // ❗ Toast про помилку — ТІЛЬКИ через useEffect
+    useEffect(() => {
+        if (isError) {
+            toast.error("There was an error. Please try again.");
+        }
+    }, [isError]);
+
+    // ❗ Toast якщо нічого не знайдено
+    useEffect(() => {
+        if (isSuccess && movies.length === 0) {
+            toast.error("No movies found for your request.");
+        }
+    }, [isSuccess, movies.length]);
 
     return (
         <div className={css.app}>
@@ -54,7 +60,6 @@ export default function App() {
             {isLoading && <Loader />}
             {isError && <ErrorMessage />}
 
-            {/* ПАГІНАЦІЯ ЗВЕРХУ */}
             {totalPages > 1 && (
                 <ReactPaginate
                     pageCount={totalPages}
